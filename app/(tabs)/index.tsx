@@ -1,75 +1,108 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+// app/(tabs)/index.tsx
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AddTaskModal from '../../components/AddTaskModal';
+
+type Task = {
+  id: string;
+  title: string;
+  done: boolean;
+};
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets(); // 👈 cihazın çentik bilgisi
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const toggleDone = (id: string) => {
+    setTasks(prev =>
+      prev.map(task =>
+        task.id === id ? { ...task, done: !task.done } : task
+      )
+    );
+  };
+
+  const onAddTask = (title: string) => {
+    const newTask = { id: Date.now().toString(), title, done: false };
+    setTasks(prev => [newTask, ...prev]);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <SafeAreaView style={styles.container}>
+      {/* + butonu */}
+      <TouchableOpacity
+        onPress={() => setModalVisible(true)}
+        style={[styles.addButton, { top: insets.top + 10 }]} // 👈 dinamik top padding
+      >
+        <Ionicons name="add-circle-outline" size={32} color="#007aff" />
+      </TouchableOpacity>
+
+      {/* Başlık */}
+      <Text style={styles.title}>📝 Yapılacaklar</Text>
+
+      {/* Liste */}
+      <FlatList
+        data={tasks}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity onPress={() => toggleDone(item.id)} style={styles.taskItem}>
+            <Text style={[styles.taskText, item.done && styles.taskDone]}>
+              {item.title}
+            </Text>
+          </TouchableOpacity>
+        )}
+      />
+
+      {/* Modal */}
+      <AddTaskModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onAddTask={onAddTask}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    marginTop: 20,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
+  taskItem: {
+    backgroundColor: '#f2f2f2',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  taskText: {
+    fontSize: 18,
+  },
+  taskDone: {
+    textDecorationLine: 'line-through',
+    color: 'gray',
+  },
+  addButton: {
     position: 'absolute',
+    right: 10,
+    zIndex: 1000,
+    elevation: 10,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 4,
   },
 });
