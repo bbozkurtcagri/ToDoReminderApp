@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import {
   FlatList,
-  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -11,66 +9,42 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AddNoteModal from '../../components/AddNoteModal';
 import { useNotes } from '../../hooks/useNotes';
 import { Note } from '../../types/Note';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function HomeScreen() {
+export default function ArchiveScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const { activeNotes, addNote, deleteNote, archiveNote } = useNotes();
+  const { archivedNotes, deleteNote, unarchiveNote } = useNotes();
 
-  const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Debug: Log activeNotes changes
-  useEffect(() => {
-    fetch('http://127.0.0.1:7242/ingest/6b33cfe5-0dd4-44d3-b249-badd4a5b28f8',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'index.tsx:26',message:'activeNotes updated',data:{count:activeNotes.length,ids:activeNotes.map(n=>n.id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-  }, [activeNotes]);
-
-  // Filter notes based on search query
   const filteredNotes = useMemo(() => {
-    if (!searchQuery.trim()) return activeNotes;
+    if (!searchQuery.trim()) return archivedNotes;
 
     const query = searchQuery.toLowerCase();
-    return activeNotes.filter(
+    return archivedNotes.filter(
       note =>
         note.title.toLowerCase().includes(query) ||
         note.content.toLowerCase().includes(query)
     );
-  }, [activeNotes, searchQuery]);
+  }, [archivedNotes, searchQuery]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-    if (days === 0) return 'Bugün';
-    if (days === 1) return 'Dün';
-    if (days < 7) return `${days} gün önce`;
-    return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+    return date.toLocaleDateString('tr-TR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   };
 
   const renderNoteItem = ({ item }: { item: Note }) => (
-    <TouchableOpacity
-      style={styles.noteCard}
-      onPress={() => router.push(`/note/${item.id}`)}
-      activeOpacity={0.7}
-    >
+    <View style={styles.noteCard}>
       <View style={styles.noteHeader}>
-        <View style={styles.noteTitleSection}>
-          <Text style={styles.noteTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-          {item.reminderAt && (
-            <View style={styles.reminderBadge}>
-              <Ionicons name="notifications" size={12} color="#007aff" />
-              <Text style={styles.reminderBadgeText}>Hatırlatıcı</Text>
-            </View>
-          )}
-        </View>
+        <Text style={styles.noteTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
         <Text style={styles.noteDate}>{formatDate(item.updatedAt)}</Text>
       </View>
 
@@ -82,10 +56,14 @@ export default function HomeScreen() {
 
       <View style={styles.noteActions}>
         <TouchableOpacity
-          onPress={() => archiveNote(item.id)}
-          style={styles.actionButton}
+          onPress={async () => {
+            await unarchiveNote(item.id);
+            // Force re-render by navigating away and back, or just wait for state update
+          }}
+          style={[styles.actionButton, styles.restoreButton]}
         >
-          <Ionicons name="archive-outline" size={18} color="#666" />
+          <Ionicons name="arrow-undo-outline" size={18} color="#007aff" />
+          <Text style={styles.restoreText}>Geri Al</Text>
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => deleteNote(item.id)}
@@ -94,25 +72,23 @@ export default function HomeScreen() {
           <Ionicons name="trash-outline" size={18} color="#ff3b30" />
         </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
-        <Text style={styles.title}>📝 Notlarım</Text>
+        <Text style={styles.title}>📦 Arşiv</Text>
         <Text style={styles.subtitle}>
-          {activeNotes.length} not
+          {archivedNotes.length} arşivlenmiş not
         </Text>
       </View>
 
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <Ionicons name="search" size={20} color="#9aa0a6" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Notlarda ara..."
+          placeholder="Arşivde ara..."
           placeholderTextColor="#9aa0a6"
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -124,17 +100,16 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Notes List */}
       {filteredNotes.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={64} color="#d1d5db" />
+          <Ionicons name="archive-outline" size={64} color="#d1d5db" />
           <Text style={styles.emptyStateText}>
-            {searchQuery ? 'Arama sonucu bulunamadı' : 'Henüz not yok'}
+            {searchQuery ? 'Arama sonucu bulunamadı' : 'Arşiv boş'}
           </Text>
           <Text style={styles.emptyStateSubtext}>
             {searchQuery
               ? 'Farklı bir arama terimi deneyin'
-              : 'Yeni bir not eklemek için + butonuna tıklayın'}
+              : 'Arşivlenmiş notlar burada görünecek'}
           </Text>
         </View>
       ) : (
@@ -146,29 +121,6 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
-
-      {/* Add Button */}
-      <TouchableOpacity
-        onPress={() => setModalVisible(true)}
-        style={[
-          styles.addButton,
-          {
-            bottom: Platform.OS === 'ios' ? insets.bottom + 80 : insets.bottom + 20,
-          },
-        ]}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Add Note Modal */}
-      <AddNoteModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onAddNote={(title, content, reminderAt) => {
-          addNote(title, content, reminderAt);
-          setModalVisible(false);
-        }}
-      />
     </SafeAreaView>
   );
 }
@@ -218,7 +170,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 20,
-    paddingBottom: 100,
   },
   noteCard: {
     backgroundColor: '#fff',
@@ -232,6 +183,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: '#f3f4f6',
+    opacity: 0.8,
   },
   noteHeader: {
     flexDirection: 'row',
@@ -239,31 +191,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 8,
   },
-  noteTitleSection: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   noteTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
     flex: 1,
-  },
-  reminderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 6,
-  },
-  reminderBadgeText: {
-    fontSize: 10,
-    color: '#007aff',
-    fontWeight: '600',
   },
   noteDate: {
     fontSize: 12,
@@ -279,6 +211,7 @@ const styles = StyleSheet.create({
   noteActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
     gap: 12,
     paddingTop: 8,
     borderTopWidth: 1,
@@ -286,6 +219,20 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 6,
+  },
+  restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+  },
+  restoreText: {
+    fontSize: 14,
+    color: '#007aff',
+    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
@@ -305,20 +252,5 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
   },
-  addButton: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007aff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#007aff',
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
-    zIndex: 1000,
-  },
 });
+
